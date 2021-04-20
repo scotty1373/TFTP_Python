@@ -126,20 +126,25 @@ def client_put(server_ip: str, file_path: str):
         Block_Num = ack_recv_iter[2:4].decode(encoding='utf-8')
 
         if Opcode == TFTP.TFTPOpcode.ERROR:
-            print('Data upload error')
+            print('Block missing, check your network env, keep connection stable!')
             sys.exit()
 
-        if len(file_buff) < 512 or fileNum != Block_Num:
+        if len(file_buff) < 512 or fileNum == Block_Num:
             print('File:%s upload successfully!!!' % file_name)
             print('Bytes upload: %d' % ((int(Block_Num) - 1) * 512 + len(file_buff)))
+            print('client: %s, port: %s ' % (remoteinfo[0], remoteinfo[1]), end='')
+            print('Terminate socket connection')
             break
 
         fileNum += 1
 
     if downloadFlag:
         fp.close()
+        sys.exit()
     else:
         os.unlink(file_name)
+        sys.exit()
+
 
 
 if __name__ == "__main__":
