@@ -154,6 +154,8 @@ class TFTP_Server:
                 os.unlink(path)
                 s2c_socks.close()
                 sys.exit()
+    def init(self):
+        pass
 
 
 
