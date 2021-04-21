@@ -98,44 +98,51 @@ class TFTP_Server:
 
     @staticmethod
     def server_upload(addr: str, port: str, path: str) -> None:
-        fp_upload = open(path, 'rb')
-        local_Block_num = 0
-        s2c_socks = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        upload_buffer = fp_upload.read(512)
-        upload_mess = TFTPOpcode.DATA + str(local_Block_num).encode(encoding='utf-8') + upload_buffer
-        s2c_socks.sendto(upload_mess, (addr, port))
-        while True:
+        with open(path, 'rb') as fp_upload:
+            local_Block_num = 1
+            s2c_socks = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             upload_buffer = fp_upload.read(512)
+            upload_mess = TFTPOpcode.DATA + str(local_Block_num).zfill(5).encode(encoding='utf-8') + upload_buffer
+            s2c_socks.sendto(upload_mess, (addr, port))
 
             c2s_data, clieninfo = s2c_socks.recvfrom(1024)
-            # client ack receive 
+            # client ack receive
             opcode = c2s_data[:2]
-            Block_Num = c2s_data[2:4].decode(encoding='utf-8')
+            Block_Num = c2s_data[2:4].decode(encoding='utf-8').lstrip('0')
 
-            if opcode == TFTPOpcode.ACK and str(local_Block_num) == Block_Num:
+            while True:
+                upload_buffer = fp_upload.read(512)
+
                 local_Block_num += 1
-                upload_mess = TFTPOpcode.DATA + str(local_Block_num).encode(encoding='utf-8') + upload_buffer
+                if local_Block_num == 65536:
+                    local_Block_num = 1
+
+                upload_mess = TFTPOpcode.DATA + str(local_Block_num).zfill(5).encode(encoding='utf-8') + upload_buffer
                 s2c_socks.sendto(upload_mess, (addr, port))
-                if len(upload_buffer) < 512:
-                    print('File upload completed!')
-                    print('Bytes uploaded: %d' % ((int(Block_Num) - 1) * 512 + len(upload_buffer)))
-                    # fp_recv.seek(0, 2)
-                    # bytes_Total = fp_recv.tell()
-                    # if bytes_Total == (int(Block_Num) - 1) * 512 + len(recv_buffer)):
-                    #     print('Bytes receive matched')
-                    fp_upload.close()
+                if opcode == TFTPOpcode.ACK:
+
+                    if len(upload_buffer) < 512:
+                        print('File upload completed!')
+                        print('Bytes uploaded: %d' % ((local_Block_num - 1) * 512 + len(upload_buffer)))
+                        # fp_recv.seek(0, 2)
+                        # bytes_Total = fp_recv.tell()
+                        # if bytes_Total == (int(Block_Num) - 1) * 512 + len(recv_buffer)):
+                        #     print('Bytes receive matched')
+                        fp_upload.close()
+                        s2c_socks.close()
+                        sys.exit()
+
+                elif local_Block_num != Block_Num:
+                    s2c_error_send = TFTPOpcode.ERROR + local_Block_num.encode(encoding='utf-8')
+                    s2c_socks.sendto(s2c_error_send, clieninfo)
+                    print('Block missing!!!')
                     s2c_socks.close()
                     sys.exit()
-                if local_Block_num == 65536:
-                    local_Block_num = 0
 
-            elif local_Block_num != Block_Num:
-                s2c_error_send = TFTPOpcode.ERROR + local_Block_num.encode(encoding='utf-8')
-                s2c_socks.sendto(s2c_error_send, (clieninfo))
-                print('Block missing!!!')
-                s2c_socks.close()
-                sys.exit()
-
+                c2s_data, clieninfo = s2c_socks.recvfrom(1024)
+                # client ack receive
+                opcode = c2s_data[:2]
+                Block_Num = c2s_data[2:7].decode(encoding='utf-8').lstrip('0')
 
     def toup(self):
         pass

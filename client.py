@@ -6,12 +6,12 @@ import time
 
 import TFTP
 
-# server_ip = sys.argv[1]
-# file_path = sys.argv[2]
-# mode = sys.argv[3]
-server_ip = '127.0.0.1'
-file_path = 'C:\\Users\\spsim\\Desktop\\data_proc\\train_data.csv'
-mode = '2'
+server_ip = sys.argv[1]
+file_path = sys.argv[2]
+mode = sys.argv[3]
+# server_ip = '127.0.0.1'
+# file_path = 'C:\\Users\\spsim\\Desktop\\data_proc\\train_data.csv'
+# mode = '2'
 # mode = '1' receive file from remote server
 # mode = '2' upload file from remote server
 
@@ -26,61 +26,53 @@ def client_get(server_ip: str, file_path: str):
     socks.sendto(rrq_data, (server_ip, TFTP.SERVER_PORT))
     print('RRQ request sending! Waiting for response', end='')
     for i in range(3): time.sleep(1); print('.', end='', flush=True)
+    print('')
     # 文件序号
     fileNum = 0
     last_block = False
-    downloadFlag = True
 
     file_name = file_path.split('\\')[-1]
-    fp = open(file_name, 'wb')
+    fp = open('copied.csv', 'wb')
     fp.seek(0, 0)
-
+    print('*' * 5 + 'Connection established!!!' + '*' * 5)
     while True:
         # maximal 516 byte
         # 接受远端服务器udp端口 
         recv_data, serverinfo = socks.recvfrom(1024)
-        print('server port:' + serverinfo[1])
 
         Opcode = recv_data[0:2]
-        Block_Num = recv_data[2:4].decode(encoding='utf-8')
-        data = recv_data[4:]
+        Block_Num = recv_data[2:7].decode(encoding='utf-8').lstrip('0')
+        data = recv_data[7:]
 
-        if Opcode == TFTP.TFTPOpcode.DATA and fileNum == Block_Num:
-            fileNum += 1
+        fileNum += 1
+        if fileNum == 65536:
+            fileNum = 1
 
-            if fileNum == 65536:
-                fileNum = 0
+        fp.write(data)
 
-            # 下载检测，文件是否存在
-            downloadFlag = True
-            # final block check
+        if Opcode == TFTP.TFTPOpcode.DATA and str(fileNum) == Block_Num:
             if len(data) < 512:
-                last_block = True
-                fp.write(data)
-                socks.sendto((TFTP.TFTPOpcode.ACK + fileNum.encode(encoding='utf-8')), (server_ip, serverinfo[1]))
+                socks.sendto((TFTP.TFTPOpcode.ACK + str(fileNum).zfill(5).encode(encoding='utf-8')),
+                             (server_ip, serverinfo[1]))
                 print('File written successfully!')
-                print('Bytes upload: %d' % ((Block_Num * 512) + len(data)))
-                break
-
-            fp.write(data)
-            # client ack
-            socks.sendto((TFTP.TFTPOpcode.ACK + fileNum.encode(encoding='utf-8')), (server_ip, serverinfo[1]))
+                print('Bytes received: %d' % (((fileNum - 1) * 512) + len(data)))
+                socks.close()
+                sys.exit()
+            socks.sendto((TFTP.TFTPOpcode.ACK + str(fileNum).zfill(5).encode(encoding='utf-8')),
+                         (server_ip, serverinfo[1]))
 
         elif Opcode == TFTP.TFTPOpcode.ERROR:
             print(TFTP.TFTPError_code.get_message(Opcode))
             print('file get error, check server file path and try again')
-            downloadFlag = False
-            break
+            socks.close()
+            sys.exit()
 
         # 接收文件块错误，请求重传
         elif fileNum != Block_Num:
-            socks.sendto((TFTP.TFTPOpcode.RACK + fileNum.encode(encoding='utf-8')), (server_ip, serverinfo[1]))
-
-    if downloadFlag:
-        fp.close()
-    else:
-        os.unlink(file_name)
-        sys.exit()
+            socks.sendto((TFTP.TFTPOpcode.ERROR + fileNum.encode(encoding='utf-8')),
+                         (server_ip, serverinfo[1]))
+            print('Block missing!!!')
+            print('*' * 5 + 'Socket closed' + '*' * 5)
 
 
 def client_put(server_ip: str, file_path: str):
@@ -97,6 +89,7 @@ def client_put(server_ip: str, file_path: str):
     downloadFlag = True
 
     file_name = file_path.split('\\')[-1]
+
     fp = open(file_path, 'rb')
     print('Require send %s to server' % file_name)
     print('WRQ request sending! Waiting for response', end='')
@@ -119,8 +112,6 @@ def client_put(server_ip: str, file_path: str):
         # maximal 516 byte 
         socks.sendto(transmit_buffer, (server_ip, ts_Port))
 
-
-
         fileNum += 1
         if fileNum == 65536:
             fileNum = 1
@@ -141,8 +132,6 @@ def client_put(server_ip: str, file_path: str):
 
         Opcode = ack_recv_iter[0:2]
         Block_Num = ack_recv_iter[2:].decode(encoding='utf-8').lstrip('0')
-
-
 
 
 if __name__ == "__main__":
