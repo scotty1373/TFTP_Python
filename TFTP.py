@@ -52,41 +52,8 @@ class TFTP_Server:
     #     self.socks = socket(AF_INET, SOCK_DGRAM)
     #     self.ADDR = addr
     #     self.PORT = port
-    def server_init(self, addr=SERVER_ADDR, port=SERVER_PORT):
-        s_socks = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # socket closed重启服务
-        s_socks.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            s_socks.bind((addr, port))
-            s_socks.listen(ACC_NUM)
-            print("Server Socket Bind Successfully!!!")
-        except socket.error as e:
-            print("Socket Bind Error At %s:%s " % (addr, port))
-            print(e)
-            sys.exit()
-
-        print('*' * 5 + 'TFTP Server Start Up!!!' + '*' * 5)
-        print('Waiting client to connect')
-        while True:
-            # First time receive from client
-            data, clientinfo = s_socks.recvfrom(1024)
-            print('Receive remote client require ')
-            opcode = data[0:2]
-            file_name = data[2:-7]
-            mode = data[-6:-1]
-            # Remote client port & ip ------- next stage communication
-            client_port = clientinfo[1]
-            client_ip = clientinfo[0]
-            # Confirm tftp transmit mode
-            if mode == b'octet':
-                if opcode == TFTPOpcode.WRQ:
-                    pass
-
-                elif opcode == TFTPOpcode.RRQ:
-                    pass
-        s_socks.close()
-    
     # WRQ SERVER RESPONSE
+    @staticmethod
     def server_recv(self, addr: str, port: int, path: str) -> None:
         fp_recv = open(path, 'wb')
         local_Block_num = 0
@@ -115,46 +82,54 @@ class TFTP_Server:
                 if local_Block_num == 65536:
                     local_Block_num = 0
                 s2c_ack = TFTPOpcode.ACK + local_Block_num.encode(encoding='utf-8')
+                s2c_socks.sendto(s2c_ack, (clientinfo))
             elif local_Block_num != Block_Num:
                 s2c_ack = TFTPOpcode.ERROR + local_Block_num.encode(encoding='utf-8')
+                s2c_socks.sendto(s2c_ack, (clientinfo))
                 print('Block missing!!!')
                 os.unlink(path)
                 s2c_socks.close()
                 sys.exit()
 
+    @staticmethod
     def server_upload(self, addr: str, port: str, path: str) -> None:
-        fp_recv = open(path, 'rb')
+        fp_upload = open(path, 'rb')
         local_Block_num = 0
         s2c_socks = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         while True:
-            c2s_data, clientinfo = s2c_socks.recvfrom(1024)
-            opcode = c2s_data[:2]
-            Block_Num = c2s_data[2:4].decode(encoding='utf-8')
-            recv_buffer = c2s_data[4:]
+            upload_buffer = fp.read(512)
 
-            if opcode == TFTPOpcode.DATA and local_Block_num == Block_Num:
-                fp_recv.read(BLOCK_SIZE)
-                if len(recv_buffer) < 512:
-                    print('File receive completed!')
-                    print('Bytes receive: %d' % ((int(Block_Num) - 1) * 512 + len(recv_buffer)))
+            c2s_data, clieninfo = s2c_socks.recvfrom(1024)
+            # client ack receive 
+            opcode = c2s_datap[:2]
+            Block_Num = c2s_data[2:4]
+
+            if opcode == TFTPOpcode.ACK and local_Block_num == Block_Num:
+                upload_mess = TFTPOpcode.DATA + local_Block_num.encode(encoding='utf-8') + upload_buffer.encode(encoding='utf-8')
+                s2c_socks.sendto(upload_mess, (addr, port))
+                if len(upload_buffer) < 512:
+                    print('File upload completed!')
+                    print('Bytes uploaded: %d' % ((int(Block_Num) - 1) * 512 + len(upload_buffer)))
                     # fp_recv.seek(0, 2)
                     # bytes_Total = fp_recv.tell()
                     # if bytes_Total == (int(Block_Num) - 1) * 512 + len(recv_buffer)):
                     #     print('Bytes receive matched')
-                    fp_recv.close()
+                    fp_upload.close()
                     s2c_socks.close()
                     sys.exit()
                 local_Block_num += 1
                 if local_Block_num == 65536:
                     local_Block_num = 0
-                s2c_ack = TFTPOpcode.ACK + local_Block_num.encode(encoding='utf-8')
+
             elif local_Block_num != Block_Num:
-                s2c_ack = TFTPOpcode.ERROR + local_Block_num.encode(encoding='utf-8')
+                s2c_error_send = TFTPOpcode.ERROR + local_Block_num.encode(encoding='utf-8')
+                s2c_socks.sendto(s2c_error_send, (clieninfo))
                 print('Block missing!!!')
-                os.unlink(path)
                 s2c_socks.close()
                 sys.exit()
-    def init(self):
+
+
+    def toup(self):
         pass
 
 

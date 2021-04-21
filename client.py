@@ -22,7 +22,7 @@ def client_get(server_ip: str, file_path: str):
     # socket自动绑定一个接收端口，可以不bind固定端口
     socks.sendto(rrq_data, (server_ip, TFTP.SERVER_PORT))
     print('RRQ request sending! Waiting for response', end='')
-    for i in range(6): time.sleep(1); print('.', end='', flush=True)
+    for i in range(3): time.sleep(1); print('.', end='', flush=True)
     # 文件序号
     fileNum = 0
     last_block = False
@@ -33,7 +33,8 @@ def client_get(server_ip: str, file_path: str):
     fp.seek(0, 0)
 
     while True:
-        # maximal 516 byte 
+        # maximal 516 byte
+        # 接受远端服务器udp端口 
         recv_data, serverinfo = socks.recvfrom(1024)
         print('server port:' + serverinfo[1])
 
