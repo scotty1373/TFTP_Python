@@ -6,9 +6,12 @@ import time
 
 import TFTP
 
-server_ip = sys.argv[1]
-file_path = sys.argv[2]
-mode = sys.argv[3]
+# server_ip = sys.argv[1]
+# file_path = sys.argv[2]
+# mode = sys.argv[3]
+server_ip = '127.0.0.1'
+file_path = 'C:\\Users\\spsim\\Desktop\\data_proc\\train_data.csv'
+mode = '2'
 # mode = '1' receive file from remote server
 # mode = '2' upload file from remote server
 
@@ -40,7 +43,7 @@ def client_get(server_ip: str, file_path: str):
 
         Opcode = recv_data[0:2]
         Block_Num = recv_data[2:4].decode(encoding='utf-8')
-        data = recv_data[2].decode(encoding='utf-8')
+        data = recv_data[4:]
 
         if Opcode == TFTP.TFTPOpcode.DATA and fileNum == Block_Num:
             fileNum += 1
@@ -51,7 +54,7 @@ def client_get(server_ip: str, file_path: str):
             # 下载检测，文件是否存在
             downloadFlag = True
             # final block check
-            if len(data) != 512:
+            if len(data) < 512:
                 last_block = True
                 fp.write(data)
                 socks.sendto((TFTP.TFTPOpcode.ACK + fileNum.encode(encoding='utf-8')), (server_ip, serverinfo[1]))
@@ -89,62 +92,56 @@ def client_put(server_ip: str, file_path: str):
     socks.sendto(wrq_data, (server_ip, TFTP.SERVER_PORT))
 
     # 文件序号
-    fileNum = 0
+    fileNum = 1
     last_block = False
     downloadFlag = True
 
     file_name = file_path.split('\\')[-1]
     fp = open(file_path, 'rb')
-    print('Require send %s to server' %file_name)
+    print('Require send %s to server' % file_name)
     print('WRQ request sending! Waiting for response', end='')
-    for i in range(6): time.sleep(1); print('.', end='', flush=True)
+    for i in range(3): time.sleep(1); print('.', end='', flush=True)
 
     # server ack receive
     ack_recv, remoteinfo = socks.recvfrom(1024)
     print('*' * 5 + 'Connection established' + '*' * 5)
-    print('remote data transmission port: ' + remoteinfo[1])
+    print('remote data transmission port: ' + str(remoteinfo[1]))
     # remote port to transmit data
     ts_Port = remoteinfo[1]
     Opcode = ack_recv[:2]
-    Block_Num = ack_recv[2:4].decode(encoding='utf-8')
-
-    if Opcode == TFTP.TFTPOpcode.ERROR:
-        print('tftp server error')
-        sys.exit()
+    Block_Num = ack_recv[2:].decode(encoding='utf-8').lstrip('0')
 
     while True:
         file_buff = fp.read(512)
-        transmit_buffer = TFTP.TFTPOpcode.DATA + fileNum.encode(encoding='utf-8') + file_buff
 
-        if fileNum == 65536:
-            fileNum = 0
+        transmit_buffer = TFTP.TFTPOpcode.DATA + str(fileNum).zfill(5).encode(encoding='utf-8') + file_buff
+
         # maximal 516 byte 
         socks.sendto(transmit_buffer, (server_ip, ts_Port))
 
-        ack_recv_iter, remoteinfo = socks.recvfrom(1024)
 
-        Opcode = ack_recv_iter[0:2]
-        Block_Num = ack_recv_iter[2:4].decode(encoding='utf-8')
+
+        fileNum += 1
+        if fileNum == 65536:
+            fileNum = 1
 
         if Opcode == TFTP.TFTPOpcode.ERROR:
             print('Block missing, check your network env, keep connection stable!')
             sys.exit()
 
-        if len(file_buff) < 512 or fileNum == Block_Num:
+        if len(file_buff) < 512:
             print('File:%s upload successfully!!!' % file_name)
             print('Bytes upload: %d' % ((int(Block_Num) - 1) * 512 + len(file_buff)))
             print('client: %s, port: %s ' % (remoteinfo[0], remoteinfo[1]), end='')
             print('Terminate socket connection')
-            break
+            socks.close()
+            sys.exit()
+        # 接收放在最后，不然传完后会一直等待远程响应
+        ack_recv_iter, remoteinfo = socks.recvfrom(1024)
 
-        fileNum += 1
+        Opcode = ack_recv_iter[0:2]
+        Block_Num = ack_recv_iter[2:].decode(encoding='utf-8').lstrip('0')
 
-    if downloadFlag:
-        fp.close()
-        sys.exit()
-    else:
-        os.unlink(file_name)
-        sys.exit()
 
 
 

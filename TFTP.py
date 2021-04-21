@@ -54,19 +54,26 @@ class TFTP_Server:
     #     self.PORT = port
     # WRQ SERVER RESPONSE
     @staticmethod
-    def server_recv(self, addr: str, port: int, path: str) -> None:
-        fp_recv = open(path, 'wb')
+    def server_recv(addr: str, port: str, path: str) -> None:
+        server_local_file_name = str(path).split('\\')[-1]
+        fp_recv = open(server_local_file_name, 'wb')
         local_Block_num = 0
         s2c_socks = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s2c_ack = TFTPOpcode.ACK + local_Block_num.encode(encoding='utf-8')
+        s2c_ack = TFTPOpcode.ACK + str(local_Block_num).zfill(5).encode(encoding='utf-8')
         s2c_socks.sendto(s2c_ack, (addr, port))
+        # recv block num match
+
         while True:
             c2s_data, clientinfo = s2c_socks.recvfrom(1024)
             opcode = c2s_data[:2]
-            Block_Num = c2s_data[2:4].decode(encoding='utf-8')
-            recv_buffer = c2s_data[4:]
+            Block_Num = c2s_data[2:7].decode(encoding='utf-8').lstrip('0')
+            recv_buffer = c2s_data[7:]
 
-            if opcode == TFTPOpcode.DATA and local_Block_num == Block_Num:
+            local_Block_num += 1
+            if local_Block_num == 65536:
+                local_Block_num = 1
+
+            if opcode == TFTPOpcode.DATA and str(local_Block_num) == Block_Num:
                 fp_recv.write(recv_buffer)
                 if len(recv_buffer) < 512:
                     print('File receive completed!')
@@ -78,34 +85,36 @@ class TFTP_Server:
                     fp_recv.close()
                     s2c_socks.close()
                     sys.exit()
-                local_Block_num += 1
-                if local_Block_num == 65536:
-                    local_Block_num = 0
-                s2c_ack = TFTPOpcode.ACK + local_Block_num.encode(encoding='utf-8')
-                s2c_socks.sendto(s2c_ack, (clientinfo))
+                s2c_ack = TFTPOpcode.ACK + str(local_Block_num).encode(encoding='utf-8')
+                s2c_socks.sendto(s2c_ack, clientinfo)
+
             elif local_Block_num != Block_Num:
-                s2c_ack = TFTPOpcode.ERROR + local_Block_num.encode(encoding='utf-8')
-                s2c_socks.sendto(s2c_ack, (clientinfo))
+                s2c_ack = TFTPOpcode.ERROR + str(local_Block_num).encode(encoding='utf-8')
+                s2c_socks.sendto(s2c_ack, clientinfo)
                 print('Block missing!!!')
-                os.unlink(path)
+                os.unlink(server_local_file_name)
                 s2c_socks.close()
                 sys.exit()
 
     @staticmethod
-    def server_upload(self, addr: str, port: str, path: str) -> None:
+    def server_upload(addr: str, port: str, path: str) -> None:
         fp_upload = open(path, 'rb')
         local_Block_num = 0
         s2c_socks = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        upload_buffer = fp_upload.read(512)
+        upload_mess = TFTPOpcode.DATA + str(local_Block_num).encode(encoding='utf-8') + upload_buffer
+        s2c_socks.sendto(upload_mess, (addr, port))
         while True:
-            upload_buffer = fp.read(512)
+            upload_buffer = fp_upload.read(512)
 
             c2s_data, clieninfo = s2c_socks.recvfrom(1024)
             # client ack receive 
-            opcode = c2s_datap[:2]
-            Block_Num = c2s_data[2:4]
+            opcode = c2s_data[:2]
+            Block_Num = c2s_data[2:4].decode(encoding='utf-8')
 
-            if opcode == TFTPOpcode.ACK and local_Block_num == Block_Num:
-                upload_mess = TFTPOpcode.DATA + local_Block_num.encode(encoding='utf-8') + upload_buffer.encode(encoding='utf-8')
+            if opcode == TFTPOpcode.ACK and str(local_Block_num) == Block_Num:
+                local_Block_num += 1
+                upload_mess = TFTPOpcode.DATA + str(local_Block_num).encode(encoding='utf-8') + upload_buffer
                 s2c_socks.sendto(upload_mess, (addr, port))
                 if len(upload_buffer) < 512:
                     print('File upload completed!')
@@ -117,7 +126,6 @@ class TFTP_Server:
                     fp_upload.close()
                     s2c_socks.close()
                     sys.exit()
-                local_Block_num += 1
                 if local_Block_num == 65536:
                     local_Block_num = 0
 

@@ -2,11 +2,8 @@
 import sys
 import os
 import socket
-import threading
+import _thread
 import TFTP
-
-
-
 
 if __name__ == '__main__':
     s_socks = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -28,17 +25,17 @@ if __name__ == '__main__':
         data, clientinfo = s_socks.recvfrom(1024)
         print('Receive remote client require ')
         opcode = data[0:2]
-        file_name = data[2:-7]
+        file_name = data[2:-7].decode(encoding='utf-8')
         mode = data[-6:-1]
         # Remote client port & ip ------- next stage communication
         client_port = clientinfo[1]
         client_ip = clientinfo[0]
         # Confirm tftp transmit mode
         if mode == b'octet':
-            if opcode == TFTPOpcode.WRQ:
-                threading._start_new_thread(TFTP.TFTP_Server.server_recv, (client_ip, client_port, file_name, ))
+            if opcode == TFTP.TFTPOpcode.WRQ:
+                _thread.start_new_thread(TFTP.TFTP_Server.server_recv, (client_ip, client_port, file_name,))
 
-            elif opcode == TFTPOpcode.RRQ:
-                threading.start_new_thread(TFTP.TFTP_Server.server_upload, (client_ip, client_port, file_name, )
-                
+            elif opcode == TFTP.TFTPOpcode.RRQ:
+                _thread.start_new_thread(TFTP.TFTP_Server.server_upload, (client_ip, client_port, file_name,))
+
     s_socks.close()
