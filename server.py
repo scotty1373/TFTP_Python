@@ -2,7 +2,7 @@
 import sys
 import os
 import socket
-from threading import Thread
+import threading
 import TFTP
 
 
@@ -36,9 +36,9 @@ if __name__ == '__main__':
         # Confirm tftp transmit mode
         if mode == b'octet':
             if opcode == TFTPOpcode.WRQ:
-                TFTP.TFTP_Server.server_recv(client_ip, client_port, file_name)
+                threading._start_new_thread(TFTP.TFTP_Server.server_recv, (client_ip, client_port, file_name, ))
 
             elif opcode == TFTPOpcode.RRQ:
-                TFTP.TFTP_Server.server_upload(client_ip, client_port, file_name)
+                threading.start_new_thread(TFTP.TFTP_Server.server_upload, (client_ip, client_port, file_name, )
                 
     s_socks.close()
