@@ -32,7 +32,7 @@ def client_get(server_ip: str, file_path: str):
     last_block = False
 
     file_name = file_path.split('\\')[-1]
-    fp = open('copied.csv', 'wb')
+    fp = open(file_name, 'wb')
     fp.seek(0, 0)
     print('*' * 5 + 'Connection established!!!' + '*' * 5)
     while True:
