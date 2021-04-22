@@ -6,7 +6,8 @@
 
 ### 启用服务端
 
-<!--Linux服务端用sudo运行，Linux在1024以下端口调用需要权限-->
+> Linux服务端用sudo运行，Linux在1024以下端口调用需要权限
+>
 
 调用多线程库_thread, 必须使用python3
 
@@ -20,6 +21,7 @@
 
 `python client.py <--server_ip> <--server_file_path> <1 --mode>`
 
-<!--Windows下路径需要将反斜线转成正斜线，Unix和Linux可识别-->
+> Windows下路径需要将反斜线转成正斜线，Unix和Linux可识别
+>
 
 `path = path.replace('\\', '/')`
