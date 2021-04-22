@@ -3,6 +3,7 @@ import sys
 import os
 import socket
 import time
+import platform
 
 import TFTP
 
@@ -30,8 +31,12 @@ def client_get(server_ip: str, file_path: str):
     # 文件序号
     fileNum = 0
     last_block = False
+    # Not Using
+    if platform.system() == 'Windows':
+        file_name = file_path.split('/')[-1]
+    else:
+        file_name = file_path.split('/')[-1]
 
-    file_name = file_path.split('\\')[-1]
     fp = open(file_name, 'wb')
     fp.seek(0, 0)
     print('*' * 5 + 'Connection established!!!' + '*' * 5)

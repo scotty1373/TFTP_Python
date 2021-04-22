@@ -2,6 +2,7 @@
 import socket
 import os
 import sys
+import platform
 from pathlib import Path, PurePosixPath
 
 
@@ -55,7 +56,12 @@ class TFTP_Server:
     # WRQ SERVER RESPONSE
     @staticmethod
     def server_recv(addr: str, port: str, path: str) -> None:
-        server_local_file_name = str(path).split('\\')[-1]
+        # Not Using!!!
+        if platform.system() == 'Windows':
+            server_local_file_name = str(path).split('/')[-1]
+        else:
+            server_local_file_name = str(path).split('/')[-1]
+
         fp_recv = open(server_local_file_name, 'wb')
         local_Block_num = 0
         s2c_socks = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
