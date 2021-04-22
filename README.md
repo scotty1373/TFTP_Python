@@ -1,10 +1,10 @@
 # TFTP 服务器python简单实现
 
-##### 脚本简介
+### 脚本简介
 
 通过socket库实现TFTP客户端文件上传下载，支持多用户同时上传下载
 
-##### 启用服务端
+### 启用服务端
 
 <!--Linux服务端用sudo运行，Linux在1024以下端口调用需要权限-->
 
@@ -12,11 +12,11 @@
 
 `sudo python3 server.py`
 
-##### 本地上传（PUT）
+### 本地上传（PUT）
 
 `python client.py <--server_ip> <--local_file_path> <2 --mode>`
 
-##### 本地下载（GET）
+### 本地下载（GET）
 
 `python client.py <--server_ip> <--server_file_path> <1 --mode>`
 
